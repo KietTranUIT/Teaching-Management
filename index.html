@@ -6,5 +6,22 @@
     </head>
     <body>
         <h1>Welcome to Teaching Management Website!</h1>
+        <button onclick="sendGetRequest()">Register</button>
     </body>
+    <script>
+        function sendGetRequest() {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/register", true);
+          xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+              console.log(xhr.responseText);
+              document.open();
+              document.write(xhr.responseText);
+              document.close();
+            }
+          };
+          xhr.send();
+          history.pushState({}, null, '/register');
+        }
+        </script>
 </html>

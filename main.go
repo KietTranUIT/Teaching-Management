@@ -1,11 +1,13 @@
 package main
 
 import (
+	"Management/User"
 	"database/sql"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -37,6 +39,23 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, nil)
 }
 
+func Register(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "register.html")
+}
+
+func HandleRegister(w http.ResponseWriter, r *http.Request) {
+	u, _ := url.Parse(r.URL.String())
+
+	query := u.Query()
+
+	var user User.User
+
+	user.SetUser(query.Get("username"), query.Get("password"))
+
+	fmt.Println(user)
+
+}
+
 func main() {
 	// Connect to database on localhost
 	db := ConnectDatabase()
@@ -49,6 +68,8 @@ func main() {
 	// Create a HTTP mux and register handle funcs
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
+	mux.HandleFunc("/register", Register)
+	mux.HandleFunc("/sign_up", HandleRegister)
 	mux.HandleFunc("/", Handle)
 
 	// Set up hostname, port, mux to run Server
