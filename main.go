@@ -30,6 +30,19 @@ func ConnectDatabase() *sql.DB {
 	return db
 }
 
+func Insert(db *sql.DB, data any) error {
+	var err error
+	switch value := data.(type) {
+	case User.User:
+		user := value
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO User VALUES('%s', '%s')", user.GetUsername(), user.GetPassword()))
+	case User.Student:
+		student := value
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO SINHVIEN VALUES('%s', '%s', '%s', '%s', '%s', '%s' '%s')", student.GetMahv(), student.GetHo(), student.GetTen(), student.GetNgsinh(), student.GetGioitinh(), student.GetNoisinh(), student.GetMalop()))
+	}
+	return err
+}
+
 // Create a template object
 var tmpl = template.Must(template.ParseFiles("index.html"))
 
@@ -39,28 +52,43 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, nil)
 }
 
-func Register(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "register.html")
+func HandleRegisterForStudent(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u, err := url.Parse(r.URL.String())
+
+		if err != nil {
+			log.Println(err.Error())
+		}
+
+		query := u.Query()
+
+		var user User.User
+		var student User.Student
+
+		user.SetUser(query.Get("username"), query.Get("password"))
+		student.SetStudent("001", query.Get("ho"), query.Get("ten"), query.Get("ngaysinh"), query.Get("gioitinh"), query.Get("noisinh"), "")
+
+		ok := Insert(db, user)
+
+		Insert(db, student)
+
+		if ok != nil {
+			log.Println(ok.Error())
+			return
+		}
+
+		log.Printf("Successfully add username: %s, password: %s to database\n", user.GetUsername(), user.GetPassword())
+	}
 }
 
-func HandleRegister(w http.ResponseWriter, r *http.Request) {
-	u, _ := url.Parse(r.URL.String())
-
-	query := u.Query()
-
-	var user User.User
-
-	user.SetUser(query.Get("username"), query.Get("password"))
-
-	fmt.Println(user)
-
+func HandleLogin(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Login request")
 }
 
 func main() {
 	// Connect to database on localhost
 	db := ConnectDatabase()
 	log.Println("Connection to database successful")
-	fmt.Println(db)
 
 	// Create a handler to process
 	fs := http.FileServer(http.Dir("assets"))
@@ -68,8 +96,14 @@ func main() {
 	// Create a HTTP mux and register handle funcs
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
-	mux.HandleFunc("/register", Register)
-	mux.HandleFunc("/sign_up", HandleRegister)
+	mux.HandleFunc("/Student/Login", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "student.html")
+	})
+	mux.HandleFunc("/Student/Login/login-student", HandleLogin)
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("ok")
+	})
+	mux.HandleFunc("/sign_up", HandleRegisterForStudent(db))
 	mux.HandleFunc("/", Handle)
 
 	// Set up hostname, port, mux to run Server
