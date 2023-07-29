@@ -6,13 +6,16 @@ import (
 )
 
 type User struct {
-	username, password string
+	username, password, id, role, email string
 }
 
-func (u *User) SetUser(usr, pass string) {
-	u.username = usr
-	hash := sha256.Sum256([]byte(pass))
+func (u *User) SetUser(user ...string) {
+	u.username = user[0]
+	hash := sha256.Sum256([]byte(user[1]))
 	u.password = hex.EncodeToString(hash[:])
+	u.id = user[2]
+	u.role = user[3]
+	u.email = user[4]
 }
 
 func (u User) GetUsername() string {
@@ -21,4 +24,16 @@ func (u User) GetUsername() string {
 
 func (u User) GetPassword() string {
 	return u.password
+}
+
+func (u User) GetId() string {
+	return u.id
+}
+
+func (u User) GetRole() string {
+	return u.role
+}
+
+func (u User) GetEmail() string {
+	return u.email
 }

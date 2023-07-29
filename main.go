@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"net/url"
 
+	"crypto/sha256"
+	"encoding/hex"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -35,10 +38,10 @@ func Insert(db *sql.DB, data any) error {
 	switch value := data.(type) {
 	case User.User:
 		user := value
-		_, err = db.Exec(fmt.Sprintf("INSERT INTO User VALUES('%s', '%s')", user.GetUsername(), user.GetPassword()))
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO User VALUES('%s', '%s', '%s', '%s', '%s')", user.GetUsername(), user.GetPassword(), user.GetId(), user.GetRole(), user.GetEmail()))
 	case User.Student:
 		student := value
-		_, err = db.Exec(fmt.Sprintf("INSERT INTO SINHVIEN VALUES('%s', '%s', '%s', '%s', '%s', '%s' '%s')", student.GetMahv(), student.GetHo(), student.GetTen(), student.GetNgsinh(), student.GetGioitinh(), student.GetNoisinh(), student.GetMalop()))
+		_, err = db.Exec(fmt.Sprintf("INSERT INTO SINHVIEN VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')", student.GetMahv(), student.GetHo(), student.GetTen(), student.GetNgsinh(), student.GetGioitinh(), student.GetNoisinh(), student.GetMalop()))
 	}
 	return err
 }
@@ -65,24 +68,52 @@ func HandleRegisterForStudent(db *sql.DB) http.HandlerFunc {
 		var user User.User
 		var student User.Student
 
-		user.SetUser(query.Get("username"), query.Get("password"))
-		student.SetStudent("001", query.Get("ho"), query.Get("ten"), query.Get("ngaysinh"), query.Get("gioitinh"), query.Get("noisinh"), "")
+		user.SetUser(query.Get("username"), query.Get("password"), "001", "no", query.Get("email"))
+		fmt.Println(user)
+		student.SetStudent("001", query.Get("ho"), query.Get("ten"), query.Get("ngaysinh"), query.Get("gioitinh"), query.Get("noisinh"), "01")
 
+		fmt.Println(query.Get("ho"))
+		fmt.Println(student)
 		ok := Insert(db, user)
 
-		Insert(db, student)
+		ok1 := Insert(db, student)
 
 		if ok != nil {
 			log.Println(ok.Error())
 			return
 		}
-
-		log.Printf("Successfully add username: %s, password: %s to database\n", user.GetUsername(), user.GetPassword())
+		if ok1 != nil {
+			log.Println(ok1.Error())
+			return
+		}
+		log.Println("Insert succeeded!")
 	}
 }
 
-func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Login request")
+func HandleLoginForStudent(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u, _ := url.Parse(r.URL.String())
+		form := u.Query()
+
+		username := form.Get("username")
+		password := form.Get("password")
+
+		hash := sha256.Sum256([]byte(password))
+		password = hex.EncodeToString(hash[:])
+
+		query := fmt.Sprintf("SELECT password FROM User WHERE username='%s'", username)
+
+		row, _ := db.Query(query)
+		var pass string
+
+		for row.Next() {
+			row.Scan(&pass)
+		}
+
+		if pass == password {
+			http.ServeFile(w, r, "main.html")
+		}
+	}
 }
 
 func main() {
@@ -99,11 +130,11 @@ func main() {
 	mux.HandleFunc("/Student/Login", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "student.html")
 	})
-	mux.HandleFunc("/Student/Login/login-student", HandleLogin)
-	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("ok")
+	mux.HandleFunc("/Student/Login/login-student", HandleLoginForStudent(db))
+	mux.HandleFunc("/Student/Register", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "registerStudent.html")
 	})
-	mux.HandleFunc("/sign_up", HandleRegisterForStudent(db))
+	mux.HandleFunc("/Student/Register/register-student", HandleRegisterForStudent(db))
 	mux.HandleFunc("/", Handle)
 
 	// Set up hostname, port, mux to run Server
